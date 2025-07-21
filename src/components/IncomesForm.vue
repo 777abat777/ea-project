@@ -1,30 +1,3 @@
-<script setup lang="ts">
-import { ref } from 'vue'
-
-const emit = defineEmits<{
-  (e: 'update', payload: {
-    dateFrom: string
-    dateTo: string
-    page: number
-    limit: number
-  }): void
-}>()
-
-const localDateFrom = ref('2025-07-01')
-const localDateTo = ref('2025-07-20')
-const localPage = ref(1)
-const localLimit = ref(10)
-
-function onSubmit() {
-  emit('update', {
-    dateFrom: localDateFrom.value,
-    dateTo: localDateTo.value,
-    page: localPage.value,
-    limit: localLimit.value
-  })
-}
-</script>
-
 <template>
   <form @submit.prevent="onSubmit" class="filter-form">
     <div class="field">
@@ -38,12 +11,7 @@ function onSubmit() {
     </div>
 
     <div class="field">
-      <label>Страница:</label>
-      <input type="number" min="1" v-model.number="localPage" />
-    </div>
-
-    <div class="field">
-      <label>Записей на странице:</label>
+      <label>Лимит на странице:</label>
       <select v-model.number="localLimit">
         <option :value="10">10</option>
         <option :value="50">50</option>
@@ -52,42 +20,139 @@ function onSubmit() {
       </select>
     </div>
 
-    <button type="submit">🔍 Показать</button>
+    <button type="submit">🔍 Запросить</button>
   </form>
+
+  <div class="pagination-controls">
+    <button :disabled="page <= 1" @click="changePage(page - 1)">← Назад</button>
+    <span>Страница {{ page }} из {{ totalPages }}</span>
+    <button :disabled="page >= totalPages" @click="changePage(page + 1)">Вперёд →</button>
+  </div>
+
+  <div v-if="total > 0" class="pagination-range">
+    <span>Показано {{ from }}–{{ to }} из {{ total }} записей</span>
+  </div>
 </template>
 
-<style scoped>
-.field{
-    width: 20%;
-    display: flex;
-    gap: 20px;
-    flex-grow: 1;
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+
+const props = defineProps<{
+  page: number
+  limit: number
+  total: number
+  from: number
+  to: number
+}>()
+
+const emit = defineEmits<{
+  (
+    e: 'update',
+    payload: {
+      dateFrom: string
+      dateTo: string
+      page: number
+      limit: number
+    },
+  ): void
+}>()
+
+const localDateFrom = ref('2025-07-01')
+const localDateTo = ref('2025-07-20')
+const localLimit = ref(props.limit)
+const page = ref(props.page)
+
+watch(
+  () => props.page,
+  (newVal) => (page.value = newVal),
+)
+watch(
+  () => props.limit,
+  (newVal) => (localLimit.value = newVal),
+)
+watch(localLimit, (newLimit) => {
+  const maxPages = Math.ceil(props.total / newLimit)
+  page.value = Math.min(page.value, maxPages)
+  onSubmit()
+})
+
+const totalPages = computed(() => (props.total > 0 ? Math.ceil(props.total / localLimit.value) : 1))
+
+function onSubmit() {
+  emit('update', {
+    dateFrom: localDateFrom.value,
+    dateTo: localDateTo.value,
+    page: page.value,
+    limit: localLimit.value,
+  })
 }
+
+function changePage(newPage: number) {
+  page.value = newPage
+  onSubmit()
+}
+</script>
+
+<style scoped>
 .filter-form {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 40px;
-    background: #f9f9f9;
-    padding: 1rem;
-    border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: #f0f4f8;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
 }
 .field label {
-    display: block;
-    margin-bottom: 0.25rem;
-    font-weight: bold;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
 }
-button {
-    grid-column: span 2;
-    padding: 0.5rem 1rem;
-    background: #0078d7;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    width: 20%;
+input,
+select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
 }
-button:hover {
+button[type='submit'] {
+  background: #0078d7;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button[type='submit']:hover {
   background: #005fa3;
+}
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.pagination-controls button {
+  padding: 0.5rem 1rem;
+  background: #0078d7;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pagination-controls button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.pagination-range {
+  margin-top: 0.5rem;
+  text-align: center;
+  color: #555;
 }
 </style>
